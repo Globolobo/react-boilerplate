@@ -5,19 +5,19 @@
 import { createStore, applyMiddleware, compose } from 'redux';
 import { fromJS } from 'immutable';
 import { routerMiddleware } from 'react-router-redux';
-import createSagaMiddleware from 'redux-saga';
-import createReducer from './reducers';
+import { createEpicMiddleware } from 'redux-observable';
+import createRootEpic, { epic$ } from './epics';
 
-const sagaMiddleware = createSagaMiddleware();
+const epicMiddleware = createEpicMiddleware(createRootEpic(epic$));
 const devtools = window.devToolsExtension || (() => noop => noop);
 
 export default function configureStore(initialState = {}, history) {
   // Create the store with two middlewares
-  // 1. sagaMiddleware: Makes redux-sagas work
+  // 1. epicMiddleware: Makes redux-observables work
   // 2. routerMiddleware: Syncs the location/URL path to the state
   const middlewares = [
-    sagaMiddleware,
-    routerMiddleware(history),
+      epicMiddleware,
+      routerMiddleware(history),
   ];
 
   const enhancers = [
@@ -32,19 +32,25 @@ export default function configureStore(initialState = {}, history) {
   );
 
   // Extensions
-  store.runSaga = sagaMiddleware.run;
   store.asyncReducers = {}; // Async reducer registry
-
+  store.epic$ = epic$;
+    
   // Make reducers hot reloadable, see http://mxs.is/googmo
   /* istanbul ignore next */
   if (module.hot) {
-    module.hot.accept('./reducers', () => {
-      System.import('./reducers').then((reducerModule) => {
-        const createReducers = reducerModule.default;
-        const nextReducers = createReducers(store.asyncReducers);
+      module.hot.accept('./reducers','./epics', () => {
+	System.import('./reducers').then((reducerModule) => {
+            const createReducers = reducerModule.default;
+            const nextReducers = createReducers(store.asyncReducers);
 
-        store.replaceReducer(nextReducers);
+            store.replaceReducer(nextReducers);
       });
+	System.import('./epics').then((epicModule) => {
+	    const createEpics = epicModule.default
+	    const nextEpics = createRootEpic(store.epic$);
+
+	    epicMiddleware.replaceEpic(rootEpic);
+	});
     });
   }
 
