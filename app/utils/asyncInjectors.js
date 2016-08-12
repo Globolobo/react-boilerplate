@@ -1,6 +1,5 @@
 import createReducer from '../reducers';
 import { BehaviorSubject } from 'rxjs/BehaviorSubject';
-//import { epic$ } from '../epics';
 
 /**
  * Inject an asynchronously loaded reducer
